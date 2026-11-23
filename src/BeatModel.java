@@ -62,10 +62,15 @@ public class BeatModel implements BeatModelInterface, Runnable {
 
         if (thread != null) {
             thread.interrupt();
+
+            try {
+                thread.join();
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            }
         }
 
         stopBeat();
-
         notifyBPMObservers();
     }
 

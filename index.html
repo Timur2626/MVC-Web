@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>DJ — веб MVC</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 60px auto;
+            padding: 20px;
+        }
+
+        button, input {
+            padding: 10px;
+            margin: 5px;
+            font-size: 16px;
+        }
+
+        #message {
+            color: darkred;
+        }
+    </style>
+</head>
+
+<body>
+<h1>DJ — управление ритмом</h1>
+
+<h2 id="status">Загрузка...</h2>
+
+<div>
+    <button id="startButton" onclick="sendCommand('start')">
+        Старт
+    </button>
+
+    <button id="stopButton" onclick="sendCommand('stop')">
+        Стоп
+    </button>
+</div>
+
+<div>
+    <button id="decreaseButton" onclick="sendCommand('decrease')">
+        − Уменьшить
+    </button>
+
+    <button id="increaseButton" onclick="sendCommand('increase')">
+        + Увеличить
+    </button>
+</div>
+
+<form id="tempoForm">
+    <label>
+        Темп:
+        <input id="bpmInput"
+               type="number"
+               min="30"
+               max="300"
+               value="90"
+               required>
+    </label>
+
+    <button id="setButton" type="submit">
+        Установить BPM
+    </button>
+</form>
+
+<p id="message"></p>
+
+<script>
+    const statusLabel = document.getElementById("status");
+    const messageLabel = document.getElementById("message");
+    const bpmInput = document.getElementById("bpmInput");
+
+    function showState(state) {
+        const running = state.bpm > 0;
+
+        statusLabel.textContent = running
+            ? "Текущий темп: " + state.bpm + " BPM"
+            : "Ритм выключен";
+
+        document.getElementById("startButton").disabled = running;
+        document.getElementById("stopButton").disabled = !running;
+        document.getElementById("decreaseButton").disabled = !running;
+        document.getElementById("increaseButton").disabled = !running;
+        document.getElementById("setButton").disabled = !running;
+
+        bpmInput.disabled = !running;
+    }
+
+    async function loadState() {
+        try {
+            const response = await fetch("/api/state");
+
+            if (!response.ok) {
+                throw new Error("Не удалось получить состояние");
+            }
+
+            showState(await response.json());
+        } catch (error) {
+            messageLabel.textContent = error.message;
+        }
+    }
+
+    async function sendCommand(action) {
+        messageLabel.textContent = "";
+
+        const parameters = new URLSearchParams();
+        parameters.set("action", action);
+
+        if (action === "set") {
+            parameters.set("bpm", bpmInput.value);
+        }
+
+        try {
+            const response = await fetch("/api/control", {
+                method: "POST",
+                body: parameters
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error);
+            }
+
+            showState(result);
+
+            if (result.bpm > 0) {
+                bpmInput.value = result.bpm;
+            }
+        } catch (error) {
+            messageLabel.textContent = error.message;
+        }
+    }
+
+    document.getElementById("tempoForm")
+        .addEventListener("submit", function (event) {
+            event.preventDefault();
+            sendCommand("set");
+        });
+
+    loadState();
+</script>
+</body>
+</html>
